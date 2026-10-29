@@ -4,40 +4,46 @@ const User = require("../models/userModel");
 
 const getDashboard = async (req, res) => {
   try {
-    const { role, _id } = req.user; // ✅ FIXED HERE
+    const { role, _id, username } = req.user;
 
-    // ==============================
-    // ADMIN DASHBOARD
-    // ==============================
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // ==========================================
+    // 1️⃣ ADMIN DASHBOARD
+    // ==========================================
     if (role === "ADMIN") {
-
-      const totalOperators = await Operator.countDocuments();
-
-      const activeOperators = await Operator.countDocuments({
-        status: "ACTIVE",
-      });
-
-      const totalTasks = await Task.countDocuments();
-
-      const pendingTasks = await Task.countDocuments({
-        status: "PENDING",
-      });
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const completedToday = await Task.countDocuments({
-        status: "COMPLETED",
-        completedDate: { $gte: today },
-      });
+      const [
+        totalOperators,
+        activeOperators,
+        totalTasks,
+        pendingTasks,
+        inProgressTasks,
+        completedToday,
+        urgentTasks,
+        totalUsers,
+        recentTasks,
+      ] = await Promise.all([
+        Operator.countDocuments(),
+        Operator.countDocuments({ status: "ACTIVE" }),
+        Task.countDocuments(),
+        Task.countDocuments({ status: "PENDING" }),
+        Task.countDocuments({ status: "IN_PROGRESS" }),
+        Task.countDocuments({ status: "COMPLETED", completedDate: { $gte: today } }),
+        Task.countDocuments({ priority: { $in: ["HIGH", "URGENT"] }, status: { $ne: "COMPLETED" } }),
+        User.countDocuments(),
+        Task.find()
+          .populate("assignedOperator", "name employeeCode role")
+          .sort({ createdAt: -1 })
+          .limit(5),
+      ]);
 
       const tasksByStatus = await Task.aggregate([
-        {
-          $group: {
-            _id: "$status",
-            count: { $sum: 1 },
-          },
-        },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]);
+
+      const operatorsByRole = await Operator.aggregate([
+        { $group: { _id: "$role", count: { $sum: 1 } } },
       ]);
 
       return res.status(200).json({
@@ -46,95 +52,114 @@ const getDashboard = async (req, res) => {
         activeOperators,
         totalTasks,
         pendingTasks,
+        inProgressTasks,
         completedToday,
+        urgentTasks,
+        totalUsers,
         tasksByStatus,
+        operatorsByRole,
+        recentTasks,
       });
     }
 
-    // ==============================
-    // SUPERVISOR DASHBOARD
-    // ==============================
+    // ==========================================
+    // 2️⃣ SUPERVISOR DASHBOARD
+    // ==========================================
     if (role === "SUPERVISOR") {
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const tasksAssignedToday = await Task.countDocuments({
-        createdAt: { $gte: today },
-      });
-
-      const pendingTasks = await Task.countDocuments({
-        status: "PENDING",
-      });
-
-      const operatorsOnShift = await Operator.countDocuments({
-        status: "ACTIVE",
-      });
+      const [
+        tasksAssignedToday,
+        pendingTasks,
+        inProgressTasks,
+        completedToday,
+        operatorsOnShift,
+        urgentTasks,
+        recentTasks,
+      ] = await Promise.all([
+        Task.countDocuments({ createdAt: { $gte: today } }),
+        Task.countDocuments({ status: "PENDING" }),
+        Task.countDocuments({ status: "IN_PROGRESS" }),
+        Task.countDocuments({ status: "COMPLETED", completedDate: { $gte: today } }),
+        Operator.countDocuments({ status: "ACTIVE" }),
+        Task.countDocuments({ priority: { $in: ["HIGH", "URGENT"] }, status: { $ne: "COMPLETED" } }),
+        Task.find()
+          .populate("assignedOperator", "name employeeCode role")
+          .sort({ createdAt: -1 })
+          .limit(6),
+      ]);
 
       return res.status(200).json({
         role: "SUPERVISOR",
         tasksAssignedToday,
         pendingTasks,
+        inProgressTasks,
+        completedToday,
         operatorsOnShift,
+        urgentTasks,
+        recentTasks,
       });
     }
 
-    // ==============================
-    // OPERATOR DASHBOARD
-    // ==============================
+    // ==========================================
+    // 3️⃣ OPERATOR DASHBOARD
+    // ==========================================
     if (role === "OPERATOR") {
-
-      const user = await User.findById(_id); // ✅ FIXED HERE
-
+      const user = await User.findById(_id);
       if (!user) {
-        return res.status(404).json({
-          message: "User not found",
-        });
+        return res.status(404).json({ success: false, message: "User not found" });
       }
 
-      if (!user.operatorId) {
-        return res.status(400).json({
-          message: "Operator not linked to this user",
-        });
+      let opId = user.operatorId;
+      if (!opId) {
+        const op = await Operator.findOne({ employeeCode: username.toUpperCase() });
+        if (op) {
+          opId = op._id;
+          user.operatorId = op._id;
+          await user.save();
+        }
       }
 
-      const operatorExists = await Operator.findById(user.operatorId);
+      let operatorInfo = null;
+      let myTasks = 0;
+      let myPendingTasks = 0;
+      let myInProgressTasks = 0;
+      let myCompletedTasks = 0;
+      let myRecentTasks = [];
 
-      if (!operatorExists) {
-        return res.status(400).json({
-          message: "Invalid operatorId linked to user",
-        });
+      if (opId) {
+        operatorInfo = await Operator.findById(opId);
+        [
+          myTasks,
+          myPendingTasks,
+          myInProgressTasks,
+          myCompletedTasks,
+          myRecentTasks,
+        ] = await Promise.all([
+          Task.countDocuments({ assignedOperator: opId }),
+          Task.countDocuments({ assignedOperator: opId, status: "PENDING" }),
+          Task.countDocuments({ assignedOperator: opId, status: "IN_PROGRESS" }),
+          Task.countDocuments({ assignedOperator: opId, status: "COMPLETED" }),
+          Task.find({ assignedOperator: opId })
+            .sort({ createdAt: -1 })
+            .limit(10),
+        ]);
       }
-
-      const myTasks = await Task.countDocuments({
-        assignedOperator: user.operatorId,
-      });
-
-      const myPendingTasks = await Task.countDocuments({
-        assignedOperator: user.operatorId,
-        status: "PENDING",
-      });
-
-      const myCompletedTasks = await Task.countDocuments({
-        assignedOperator: user.operatorId,
-        status: "COMPLETED",
-      });
 
       return res.status(200).json({
         role: "OPERATOR",
+        operator: operatorInfo,
         myTasks,
         myPendingTasks,
+        myInProgressTasks,
         myCompletedTasks,
+        recentTasks: myRecentTasks,
       });
     }
 
-    return res.status(403).json({
-      message: "Invalid role",
-    });
-
+    return res.status(403).json({ success: false, message: "Invalid role" });
   } catch (error) {
     console.error("Dashboard Error:", error);
     return res.status(500).json({
+      success: false,
       message: "Server Error",
       error: error.message,
     });

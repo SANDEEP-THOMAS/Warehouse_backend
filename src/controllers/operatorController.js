@@ -1,9 +1,8 @@
-const Operator = require("../models/operatorModel");
-
 const {
   createOperator,
   updateOperator,
-  softDeleteOperator,
+  toggleOperatorStatus,
+  deleteOperator,
   searchOperators,
 } = require("../services/operatorService");
 
@@ -17,17 +16,33 @@ const createOperatorController = async (req, res) => {
   try {
     const error = validateCreateOperator(req.body);
     if (error) {
-      return res.status(400).json({ message: error });
+      return res.status(400).json({ success: false, message: error });
     }
 
     const operator = await createOperator(req.body);
 
     res.status(201).json({
-      message: "Operator created successfully",
+      success: true,
+      message: "Operator created successfully with login credentials",
       operator,
+      defaultLogin: {
+        username: operator.employeeCode.toLowerCase(),
+        password: req.body.password || operator.employeeCode,
+      },
     });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// GET / SEARCH OPERATORS
+const getOperatorsController = async (req, res) => {
+  try {
+    const operators = await searchOperators(req.query);
+    // Return array directly for frontend convenience, with full support
+    return res.status(200).json(operators);
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
   }
 };
 
@@ -36,84 +51,54 @@ const updateOperatorController = async (req, res) => {
   try {
     const error = validateUpdateOperator(req.body);
     if (error) {
-      return res.status(400).json({ message: error });
+      return res.status(400).json({ success: false, message: error });
     }
 
     const operator = await updateOperator(req.params.id, req.body);
 
     res.status(200).json({
+      success: true,
       message: "Operator updated successfully",
       operator,
     });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// SOFT DELETE OPERATOR
-const softDeleteOperatorController = async (req, res) => {
+// TOGGLE / SOFT DELETE OPERATOR STATUS
+const toggleOperatorStatusController = async (req, res) => {
   try {
-    const operator = await softDeleteOperator(req.params.id);
+    const { status } = req.body;
+    const operator = await toggleOperatorStatus(req.params.id, status);
 
     res.status(200).json({
-      message: "Operator deactivated successfully",
+      success: true,
+      message: `Operator status updated to ${operator.status}`,
       operator,
     });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ success: false, message: err.message });
   }
 };
 
-// SEARCH OPERATORS
-const searchOperatorController = async (req, res) => {
+// DELETE OPERATOR
+const deleteOperatorController = async (req, res) => {
   try {
-    const operators = await searchOperators(req.query);
-
-    // 🔥 Return array directly (frontend expects this)
-    return res.status(200).json(operators);
+    const result = await deleteOperator(req.params.id);
+    res.status(200).json({ success: true, ...result });
   } catch (err) {
-    return res.status(400).json({ message: err.message });
+    res.status(400).json({ success: false, message: err.message });
   }
-};
-
-// delete operator
-
-const deleteOperator = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const operators = await Operator.findByIdAndDelete(id);
-
-    if (!operators) {
-      return res.status(404).json({ message: "Operator not found" });
-    }
-
-    res.status(200).json({ message: "Operator deleted succesfully" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// update operator
-const editOperator = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const operators = await Operator.findByIdAndUpdate(id, req.body, {
-      new: true,
-    });
-
-    if (!operators) {
-      return res.status(404).json({ message: "operator not found" });
-    }
-
-    res.status(200).json({ message: "Operator updated successfully" });
-  } catch (error) {}
 };
 
 module.exports = {
   createOperatorController,
+  getOperatorsController,
   updateOperatorController,
-  softDeleteOperatorController,
-  searchOperatorController,
-  deleteOperator,
-  editOperator,
+  toggleOperatorStatusController,
+  deleteOperatorController,
+  // Alias for backward compatibility
+  softDeleteOperatorController: toggleOperatorStatusController,
+  searchOperatorController: getOperatorsController,
 };

@@ -8,13 +8,19 @@ const {
   createUser,
   getUsers,
   updateUser,
-  deactivateUser,
+  toggleUserStatus,
+  deleteUser,
 } = require("../controllers/userController");
 
-router.post("/", protect, authorize("ADMIN"), createUser);
-// router.post("/", createUser);
-router.get("/", protect, authorize("ADMIN"), getUsers);
-router.put("/:id", protect, authorize("ADMIN"), updateUser);
-router.patch("/:id/deactivate", protect, authorize("ADMIN"), deactivateUser);
+router.use(protect);
+router.use(authorize("ADMIN"));
+
+// Admin only routes
+router.post("/", createUser);
+router.get("/", getUsers);
+router.put("/:id", updateUser);
+router.patch("/:id/deactivate", toggleUserStatus);
+router.patch("/:id/status", toggleUserStatus);
+router.delete("/:id", deleteUser);
 
 module.exports = router;

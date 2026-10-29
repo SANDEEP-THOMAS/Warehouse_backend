@@ -3,52 +3,34 @@ const router = express.Router();
 
 const {
   createOperatorController,
+  getOperatorsController,
   updateOperatorController,
-  softDeleteOperatorController,
-  searchOperatorController,
-  deleteOperator,
-  editOperator,
+  toggleOperatorStatusController,
+  deleteOperatorController,
 } = require("../controllers/operatorController");
 
 const protect = require("../middlewares/authMiddleware");
 const authorize = require("../middlewares/roleMiddleware");
 
+// All operator routes require authentication
+router.use(protect);
 
-// CREATE OPERATOR (Admin & Supervisor allowed)
-router.post(
-  "/",
-  protect,
-  authorize("ADMIN", "SUPERVISOR"),
-  createOperatorController
-);
+// GET /api/operators - List & filter (Admin, Supervisor, Operator)
+router.get("/", authorize("ADMIN", "SUPERVISOR", "OPERATOR"), getOperatorsController);
 
-// UPDATE OPERATOR
-router.put(
-  "/:id",
-  protect,
-  authorize("ADMIN", "SUPERVISOR"),
-  updateOperatorController
-);
+// POST /api/operators - Create operator (Admin & Supervisor)
+router.post("/", authorize("ADMIN", "SUPERVISOR"), createOperatorController);
 
-// SOFT DELETE OPERATOR
-router.patch(
-  "/:id/deactivate",
-  protect,
-  authorize("ADMIN"),
-  softDeleteOperatorController
-);
+// PUT /api/operators/:id - Update operator (Admin & Supervisor)
+router.put("/:id", authorize("ADMIN", "SUPERVISOR"), updateOperatorController);
 
-// SEARCH OPERATORS
-router.get(
-  "/",
-  protect,
-  authorize("ADMIN", "SUPERVISOR"),
-  searchOperatorController
-);
+// PATCH /api/operators/:id/status - Toggle/set status (Admin & Supervisor)
+router.patch("/:id/status", authorize("ADMIN", "SUPERVISOR"), toggleOperatorStatusController);
 
+// Legacy PATCH /api/operators/:id/deactivate
+router.patch("/:id/deactivate", authorize("ADMIN", "SUPERVISOR"), toggleOperatorStatusController);
 
-// delete operator
-router.delete("/:id",deleteOperator)
-router.patch('/:id',editOperator)
+// DELETE /api/operators/:id - Delete operator (Admin only)
+router.delete("/:id", authorize("ADMIN"), deleteOperatorController);
 
 module.exports = router;

@@ -1,290 +1,3 @@
-// const Task = require("../models/taskModel");
-// const Operator = require("../models/operatorModel");
-// const ROLES = require("../constants/roles");
-
-// ================= CREATE TASK =================
-// const createTask = async (req, res) => {
-//   try {
-//     const { title, description, taskType, priority, assignedOperator } = req.body;
-
-//     // Only Admin or Supervisor can create
-//     if (![ROLES.ADMIN, ROLES.SUPERVISOR].includes(req.user.role)) {
-//       return res.status(403).json({ message: "Access denied" });
-//     }
-
-//     const operator = await Operator.findById(assignedOperator);
-
-//     if (!operator) {
-//       return res.status(400).json({ message: "Invalid operator" });
-//     }
-
-//     if (operator.status !== "ACTIVE") {
-//       return res.status(400).json({
-//         message: "Cannot assign task to inactive operator",
-//       });
-//     }
-
-//     const task = await Task.create({
-//       title,
-//       description,
-//       taskType,
-//       priority,
-//       assignedOperator,
-//     });
-
-//     return res.status(201).json({
-//       message: "Task created successfully",
-//       task,
-//     });
-
-//   } catch (error) {
-//     console.log("CREATE TASK ERROR:", error);
-//     return res.status(500).json({ message: error.message });
-//   }
-// };
-
-// ================= GET TASKS =================
-// const getTasks = async (req, res) => {
-//   try {
-//     let tasks = [];
-
-//     if (req.user.role === "OPERATOR") {
-//       tasks = await Task.find({
-//         assignedOperator: req.user.operatorId,
-//       }).populate("assignedOperator", "name employeeCode");
-//     } else {
-//       tasks = await Task.find().populate(
-//         "assignedOperator",
-//         "name employeeCode"
-//       );
-//     }
-
-//     return res.status(200).json(tasks);
-
-//   } catch (error) {
-//     console.log("GET TASK ERROR:", error);
-//     return res.status(500).json({ message: error.message });
-//   }
-// };
-
-// ================= UPDATE TASK =================
-// const updateTask = async (req, res) => {
-//   try {
-//     const { status, title, description, priority } = req.body;
-
-//     const task = await Task.findById(req.params.id);
-
-//     if (!task) {
-//       return res.status(404).json({ message: "Task not found" });
-//     }
-
-//     // OPERATOR: only update own task
-//     if (req.user.role === ROLES.OPERATOR) {
-//       if (
-//         !req.user.operatorId ||
-//         task.assignedOperator.toString() !== req.user.operatorId.toString()
-//       ) {
-//         return res.status(403).json({ message: "Access denied" });
-//       }
-//     }
-
-//     // STATUS FLOW VALIDATION
-//     if (status) {
-//       const validFlow = {
-//         PENDING: ["IN_PROGRESS"],
-//         IN_PROGRESS: ["COMPLETED"],
-//         COMPLETED: [],
-//       };
-
-//       if (!validFlow[task.status]?.includes(status)) {
-//         return res.status(400).json({
-//           message: "Invalid task status transition",
-//         });
-//       }
-
-//       task.status = status;
-
-//       if (status === "COMPLETED") {
-//         task.completedDate = new Date();
-//       }
-//     }
-
-//     // ADMIN: can update everything
-//     if (req.user.role === ROLES.ADMIN) {
-//       if (title) task.title = title;
-//       if (description) task.description = description;
-//       if (priority) task.priority = priority;
-//     }
-
-// //     if (req.user.role === ROLES.ADMIN) {
-// //   if (title) task.title = title;
-// //   if (description) task.description = description;
-// //   if (priority) task.priority = priority;
-
-// //   if (req.body.assignedOperator) {
-// //     const operator = await Operator.findById(req.body.assignedOperator);
-
-// //     if (!operator) {
-// //       return res.status(400).json({ message: "Invalid operator" });
-// //     }
-
-// //     if (operator.status !== "ACTIVE") {
-// //       return res.status(400).json({
-// //         message: "Cannot assign task to inactive operator",
-// //       });
-// //     }
-
-// //     task.assignedOperator = req.body.assignedOperator;
-// //   }
-// // }
-
-//     // SUPERVISOR: can only update status
-//     if (req.user.role === ROLES.SUPERVISOR) {
-//       if (title || description || priority) {
-//         return res.status(403).json({
-//           message: "Supervisor can only update status",
-//         });
-//       }
-//     }
-
-//     await task.save();
-
-//     return res.status(200).json({
-//       message: "Task updated successfully",
-//       task,
-//     });
-
-//   } catch (error) {
-//     console.log("UPDATE TASK ERROR:", error);
-//     return res.status(500).json({ message: error.message });
-//   }
-// };
-
-// ================= UPDATE TASK =================
-// const updateTask = async (req, res) => {
-//   try {
-//     const { status, title, description, priority, assignedOperator } = req.body;
-
-//     const task = await Task.findById(req.params.id);
-
-//     if (!task) {
-//       return res.status(404).json({ message: "Task not found" });
-//     }
-
-//     // ================= OPERATOR =================
-//     if (req.user.role === ROLES.OPERATOR) {
-//       if (
-//         !req.user.operatorId ||
-//         task.assignedOperator.toString() !== req.user.operatorId.toString()
-//       ) {
-//         return res.status(403).json({ message: "Access denied" });
-//       }
-
-//       // Operator can ONLY update status
-//       if (!status || title || description || priority || assignedOperator) {
-//         return res.status(403).json({
-//           message: "Operator can only update status",
-//         });
-//       }
-//     }
-
-//     // ================= SUPERVISOR =================
-//     if (req.user.role === ROLES.SUPERVISOR) {
-//       // Supervisor can ONLY update status
-//       if (title || description || priority || assignedOperator) {
-//         return res.status(403).json({
-//           message: "Supervisor can only update status",
-//         });
-//       }
-//     }
-
-//     // ================= STATUS FLOW =================
-//     if (status) {
-//       const validFlow = {
-//         PENDING: ["IN_PROGRESS"],
-//         IN_PROGRESS: ["COMPLETED"],
-//         COMPLETED: [],
-//       };
-
-//       if (!validFlow[task.status]?.includes(status)) {
-//         return res.status(400).json({
-//           message: "Invalid task status transition",
-//         });
-//       }
-
-//       task.status = status;
-
-//       if (status === "COMPLETED") {
-//         task.completedDate = new Date();
-//       }
-//     }
-
-//     // ================= ADMIN FULL CONTROL =================
-//     // if (req.user.role === ROLES.ADMIN) {
-//     //   if (title) task.title = title;
-//     //   if (description) task.description = description;
-//     //   if (priority) task.priority = priority;
-
-//     //   if (assignedOperator) {
-//     //     const operator = await Operator.findById(assignedOperator);
-
-//     //     if (!operator) {
-//     //       return res.status(400).json({ message: "Invalid operator" });
-//     //     }
-
-//     //     if (operator.status !== "ACTIVE") {
-//     //       return res.status(400).json({
-//     //         message: "Cannot assign task to inactive operator",
-//     //       });
-//     //     }
-
-//     //     task.assignedOperator = assignedOperator;
-//     //   }
-//     // }
-
-//     if (req.user.role === ROLES.ADMIN) {
-//   if (title !== undefined) task.title = title;
-//   if (description !== undefined) task.description = description;
-//   if (priority !== undefined) task.priority = priority;
-
-//   if (assignedOperator !== undefined) {
-//     const operator = await Operator.findById(assignedOperator);
-
-//     if (!operator) {
-//       return res.status(400).json({ message: "Invalid operator" });
-//     }
-
-//     if (operator.status !== "ACTIVE") {
-//       return res.status(400).json({
-//         message: "Cannot assign task to inactive operator",
-//       });
-//     }
-
-//     task.assignedOperator = assignedOperator;
-//   }
-// }
-
-//     await task.save();
-
-//     return res.status(200).json({
-//       message: "Task updated successfully",
-//       task,
-//     });
-
-//   } catch (error) {
-//     console.log("UPDATE TASK ERROR:", error);
-//     return res.status(500).json({ message: error.message });
-//   }
-// };
-
-// module.exports = {
-
-//   createTask,
-//   getTasks,
-//   updateTask,
-// };
-
-
 const Task = require("../models/taskModel");
 const Operator = require("../models/operatorModel");
 const ROLES = require("../constants/roles");
@@ -292,62 +5,100 @@ const ROLES = require("../constants/roles");
 // ================= CREATE TASK =================
 const createTask = async (req, res) => {
   try {
-    const { title, description, taskType, priority, assignedOperator } = req.body;
+    const { title, description, taskType, priority, assignedOperator, notes } = req.body;
+
+    if (!title || !description || !assignedOperator) {
+      return res.status(400).json({
+        success: false,
+        message: "Title, description, and assigned operator are required",
+      });
+    }
 
     if (![ROLES.ADMIN, ROLES.SUPERVISOR].includes(req.user.role)) {
-      return res.status(403).json({ message: "Access denied" });
+      return res.status(403).json({ success: false, message: "Only Admin and Supervisor can create tasks" });
     }
 
     const operator = await Operator.findById(assignedOperator);
-
     if (!operator) {
-      return res.status(400).json({ message: "Invalid operator" });
+      return res.status(400).json({ success: false, message: "Assigned operator not found" });
     }
 
     if (operator.status !== "ACTIVE") {
       return res.status(400).json({
-        message: "Cannot assign task to inactive operator",
+        success: false,
+        message: `Cannot assign task to inactive operator (${operator.name})`,
       });
     }
 
     const task = await Task.create({
-      title,
-      description,
-      taskType,
-      priority,
+      title: title.trim(),
+      description: description.trim(),
+      taskType: taskType ? taskType.trim() : "PICKING",
+      priority: priority || "MEDIUM",
       assignedOperator,
+      notes: notes || "",
+      status: "PENDING",
     });
 
+    const populatedTask = await Task.findById(task._id).populate(
+      "assignedOperator",
+      "name employeeCode role shift status"
+    );
+
     return res.status(201).json({
+      success: true,
       message: "Task created successfully",
-      task,
+      task: populatedTask,
     });
   } catch (error) {
-    console.log("CREATE TASK ERROR:", error);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // ================= GET TASKS =================
 const getTasks = async (req, res) => {
   try {
-    let tasks = [];
+    const { status, priority, operatorId, search } = req.query;
+    const filter = {};
 
-    if (req.user.role === ROLES.OPERATOR) {
-      tasks = await Task.find({
-        assignedOperator: req.user.operatorId,
-      }).populate("assignedOperator", "name employeeCode");
-    } else {
-      tasks = await Task.find().populate(
-        "assignedOperator",
-        "name employeeCode"
-      );
+    if (status && status !== "ALL") {
+      filter.status = status;
     }
+
+    if (priority && priority !== "ALL") {
+      filter.priority = priority;
+    }
+
+    if (operatorId && operatorId !== "ALL") {
+      filter.assignedOperator = operatorId;
+    }
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { taskType: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Role-specific scoping
+    if (req.user.role === ROLES.OPERATOR) {
+      // Find operator ID if not in token
+      let opId = req.user.operatorId;
+      if (!opId) {
+        const op = await Operator.findOne({ employeeCode: req.user.username.toUpperCase() });
+        if (op) opId = op._id;
+      }
+      filter.assignedOperator = opId;
+    }
+
+    const tasks = await Task.find(filter)
+      .populate("assignedOperator", "name employeeCode role shift status")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json(tasks);
   } catch (error) {
-    console.log("GET TASK ERROR:", error);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -361,93 +112,126 @@ const updateTask = async (req, res) => {
       taskType,
       priority,
       assignedOperator,
+      notes,
     } = req.body;
 
     const task = await Task.findById(req.params.id);
-
     if (!task) {
-      return res.status(404).json({ message: "Task not found" });
+      return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    // ================= OPERATOR =================
+    // ================= OPERATOR PERMISSIONS =================
     if (req.user.role === ROLES.OPERATOR) {
-      if (
-        !req.user.operatorId ||
-        task.assignedOperator.toString() !== req.user.operatorId.toString()
-      ) {
-        return res.status(403).json({ message: "Access denied" });
+      let opId = req.user.operatorId?.toString();
+      if (!opId) {
+        const op = await Operator.findOne({ employeeCode: req.user.username.toUpperCase() });
+        if (op) opId = op._id.toString();
       }
 
-      if (!status || title || description || taskType || priority || assignedOperator) {
-        return res.status(403).json({
-          message: "Operator can only update status",
-        });
+      if (!opId || task.assignedOperator.toString() !== opId) {
+        return res.status(403).json({ success: false, message: "Access denied. You can only update your own tasks." });
       }
-    }
 
-    // ================= SUPERVISOR =================
-    if (req.user.role === ROLES.SUPERVISOR) {
       if (title || description || taskType || priority || assignedOperator) {
         return res.status(403).json({
-          message: "Supervisor can only update status",
+          success: false,
+          message: "Operators are only permitted to update task status",
         });
       }
     }
 
-    // ================= STATUS FLOW =================
-    if (status) {
-      const validFlow = {
-        PENDING: ["IN_PROGRESS"],
-        IN_PROGRESS: ["COMPLETED"],
-        COMPLETED: [],
+    // ================= STATUS TRANSITIONS =================
+    if (status && status !== task.status) {
+      const allowedTransitions = {
+        PENDING: ["IN_PROGRESS", "CANCELLED"],
+        IN_PROGRESS: ["COMPLETED", "PENDING", "CANCELLED"],
+        COMPLETED: ["IN_PROGRESS"], // Reopen if needed
+        CANCELLED: ["PENDING"],
       };
 
-      if (!validFlow[task.status]?.includes(status)) {
-        return res.status(400).json({
-          message: "Invalid task status transition",
-        });
+      // If operator, they can only move forward: PENDING -> IN_PROGRESS -> COMPLETED
+      if (req.user.role === ROLES.OPERATOR) {
+        const operatorFlow = {
+          PENDING: ["IN_PROGRESS"],
+          IN_PROGRESS: ["COMPLETED"],
+          COMPLETED: [],
+        };
+        if (!operatorFlow[task.status]?.includes(status)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid status transition from ${task.status} to ${status} for operator`,
+          });
+        }
+      } else {
+        // Admin and supervisor have more flexibility
+        if (!allowedTransitions[task.status]?.includes(status)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid task status transition from ${task.status} to ${status}`,
+          });
+        }
       }
 
       task.status = status;
-
       if (status === "COMPLETED") {
         task.completedDate = new Date();
+      } else if (task.completedDate) {
+        task.completedDate = null;
       }
     }
 
-    // ================= ADMIN FULL CONTROL =================
-    if (req.user.role === ROLES.ADMIN) {
-      if (title !== undefined) task.title = title;
-      if (description !== undefined) task.description = description;
-      if (taskType !== undefined) task.taskType = taskType;
+    // ================= SUPERVISOR / ADMIN UPDATES =================
+    if (req.user.role === ROLES.SUPERVISOR || req.user.role === ROLES.ADMIN) {
+      if (title !== undefined) task.title = title.trim();
+      if (description !== undefined) task.description = description.trim();
+      if (taskType !== undefined) task.taskType = taskType.trim();
       if (priority !== undefined) task.priority = priority;
+      if (notes !== undefined) task.notes = notes.trim();
 
-      if (assignedOperator !== undefined) {
-        const operator = await Operator.findById(assignedOperator);
-
-        if (!operator) {
-          return res.status(400).json({ message: "Invalid operator" });
+      if (assignedOperator !== undefined && assignedOperator !== task.assignedOperator.toString()) {
+        const newOp = await Operator.findById(assignedOperator);
+        if (!newOp) {
+          return res.status(400).json({ success: false, message: "Target operator does not exist" });
         }
-
-        if (operator.status !== "ACTIVE") {
-          return res.status(400).json({
-            message: "Cannot assign task to inactive operator",
-          });
+        if (newOp.status !== "ACTIVE") {
+          return res.status(400).json({ success: false, message: "Cannot assign task to inactive operator" });
         }
-
         task.assignedOperator = assignedOperator;
       }
     }
 
     await task.save();
 
+    const updatedTask = await Task.findById(task._id).populate(
+      "assignedOperator",
+      "name employeeCode role shift status"
+    );
+
     return res.status(200).json({
+      success: true,
       message: "Task updated successfully",
-      task,
+      task: updatedTask,
     });
   } catch (error) {
-    console.log("UPDATE TASK ERROR:", error);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ================= DELETE TASK =================
+const deleteTask = async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ success: false, message: "Task not found" });
+    }
+
+    await Task.findByIdAndDelete(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: "Task deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -455,4 +239,5 @@ module.exports = {
   createTask,
   getTasks,
   updateTask,
+  deleteTask,
 };
